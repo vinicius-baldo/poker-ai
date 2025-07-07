@@ -1,1 +1,1 @@
-# PokerAI - Intelligent Poker Assistant 
+# PokerAI - Intelligent Poker Assistant

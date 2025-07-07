@@ -1,0 +1,31 @@
+{
+  "poker_stars_regions": {
+    "pot_size": {
+      "x": 990,
+      "y": 510,
+      "width": 140,
+      "height": 40,
+      "description": "Pot size display region"
+    },
+    "community_cards": {
+      "x": 750,
+      "y": 550,
+      "width": 630,
+      "height": 170,
+      "description": "Community cards (flop, turn, river)"
+    },
+    "hole_cards": {
+      "x": 950,
+      "y": 930,
+      "width": 230,
+      "height": 100,
+      "description": "Hero's hole cards"
+    }
+  },
+  "calibration_info": {
+    "image_used": "imagem_tela.png",
+    "image_dimensions": "2130x1594",
+    "calibration_date": "2024",
+    "notes": "Calibrated for PokerStars table layout"
+  }
+}

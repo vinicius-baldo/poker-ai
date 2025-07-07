@@ -1,1 +1,1 @@
-# Screen capture and OCR for table reading 
+# Screen capture and OCR for table reading
