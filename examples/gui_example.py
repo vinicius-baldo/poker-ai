@@ -7,11 +7,13 @@ import os
 import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-# Add src to path
+from typing import Any, Dict
+
+# Add src to path for local imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from typing import Any, Dict
-from main_poker_assistant import PokerAssistant
+# Local imports after path modification
+from main_poker_assistant import PokerAssistant  # noqa: E402
 
 
 class PokerAIGUI:
@@ -33,7 +35,7 @@ class PokerAIGUI:
         """Create and arrange GUI widgets."""
         # Main frame
         main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        main_frame.grid(row=0, column=0, sticky="wens")
 
         # Configure grid weights
         self.root.columnconfigure(0, weight=1)
@@ -42,11 +44,11 @@ class PokerAIGUI:
 
         # Image selection
         ttk.Label(main_frame, text="Poker Table Image:").grid(
-            row=0, column=0, sticky=tk.W, pady=5
+            row=0, column=0, sticky="w", pady=5
         )
         self.image_path_var = tk.StringVar()
         ttk.Entry(main_frame, textvariable=self.image_path_var, width=50).grid(
-            row=0, column=1, sticky=(tk.W, tk.E), padx=5
+            row=0, column=1, sticky="we", padx=5
         )
         ttk.Button(main_frame, text="Browse", command=self.browse_image).grid(
             row=0, column=2, padx=5
@@ -59,9 +61,7 @@ class PokerAIGUI:
 
         # Create notebook for different sections
         notebook = ttk.Notebook(main_frame)
-        notebook.grid(
-            row=2, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10
-        )
+        notebook.grid(row=2, column=0, columnspan=3, sticky="wens", pady=10)
         main_frame.rowconfigure(2, weight=1)
 
         # AI Analysis tab
@@ -94,21 +94,21 @@ class PokerAIGUI:
         self.confidence_var = tk.StringVar(value="0%")
         self.reasoning_var = tk.StringVar(value="")
 
-        ttk.Label(rec_frame, text="Action:").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(rec_frame, text="Action:").grid(row=0, column=0, sticky="w")
         self.recommendation_label = ttk.Label(
             rec_frame, textvariable=self.recommendation_var, font=("Arial", 14, "bold")
         )
-        self.recommendation_label.grid(row=0, column=1, sticky=tk.W, padx=10)
+        self.recommendation_label.grid(row=0, column=1, sticky="w", padx=10)
 
-        ttk.Label(rec_frame, text="Confidence:").grid(row=1, column=0, sticky=tk.W)
+        ttk.Label(rec_frame, text="Confidence:").grid(row=1, column=0, sticky="w")
         self.confidence_label = ttk.Label(
             rec_frame, textvariable=self.confidence_var, font=("Arial", 12)
         )
-        self.confidence_label.grid(row=1, column=1, sticky=tk.W, padx=10)
+        self.confidence_label.grid(row=1, column=1, sticky="w", padx=10)
 
-        ttk.Label(rec_frame, text="Reasoning:").grid(row=2, column=0, sticky=tk.W)
+        ttk.Label(rec_frame, text="Reasoning:").grid(row=2, column=0, sticky="w")
         reasoning_text = tk.Text(rec_frame, height=4, width=50, wrap=tk.WORD)
-        reasoning_text.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=10, pady=5)
+        reasoning_text.grid(row=2, column=1, sticky="we", padx=10, pady=5)
         self.reasoning_text = reasoning_text
 
         # Metrics section
@@ -121,27 +121,27 @@ class PokerAIGUI:
         self.pot_odds_var = tk.StringVar(value="0:1")
 
         ttk.Label(metrics_frame, text="Expected Value:").grid(
-            row=0, column=0, sticky=tk.W
+            row=0, column=0, sticky="w"
         )
         ttk.Label(metrics_frame, textvariable=self.expected_value_var).grid(
-            row=0, column=1, sticky=tk.W, padx=10
+            row=0, column=1, sticky="w", padx=10
         )
 
-        ttk.Label(metrics_frame, text="Risk Level:").grid(row=1, column=0, sticky=tk.W)
+        ttk.Label(metrics_frame, text="Risk Level:").grid(row=1, column=0, sticky="w")
         ttk.Label(metrics_frame, textvariable=self.risk_level_var).grid(
-            row=1, column=1, sticky=tk.W, padx=10
+            row=1, column=1, sticky="w", padx=10
         )
 
         ttk.Label(metrics_frame, text="Hand Strength:").grid(
-            row=2, column=0, sticky=tk.W
+            row=2, column=0, sticky="w"
         )
         ttk.Label(metrics_frame, textvariable=self.hand_strength_var).grid(
-            row=2, column=1, sticky=tk.W, padx=10
+            row=2, column=1, sticky="w", padx=10
         )
 
-        ttk.Label(metrics_frame, text="Pot Odds:").grid(row=3, column=0, sticky=tk.W)
+        ttk.Label(metrics_frame, text="Pot Odds:").grid(row=3, column=0, sticky="w")
         ttk.Label(metrics_frame, textvariable=self.pot_odds_var).grid(
-            row=3, column=1, sticky=tk.W, padx=10
+            row=3, column=1, sticky="w", padx=10
         )
 
     def create_table_tab(self, parent: ttk.Frame) -> None:
@@ -153,19 +153,19 @@ class PokerAIGUI:
         self.current_bet_var = tk.StringVar(value="$0.00")
         self.street_var = tk.StringVar(value="Unknown")
 
-        ttk.Label(table_frame, text="Pot Size:").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(table_frame, text="Pot Size:").grid(row=0, column=0, sticky="w")
         ttk.Label(
             table_frame, textvariable=self.pot_size_var, font=("Arial", 12, "bold")
-        ).grid(row=0, column=1, sticky=tk.W, padx=10)
+        ).grid(row=0, column=1, sticky="w", padx=10)
 
-        ttk.Label(table_frame, text="Current Bet:").grid(row=1, column=0, sticky=tk.W)
+        ttk.Label(table_frame, text="Current Bet:").grid(row=1, column=0, sticky="w")
         ttk.Label(table_frame, textvariable=self.current_bet_var).grid(
-            row=1, column=1, sticky=tk.W, padx=10
+            row=1, column=1, sticky="w", padx=10
         )
 
-        ttk.Label(table_frame, text="Street:").grid(row=2, column=0, sticky=tk.W)
+        ttk.Label(table_frame, text="Street:").grid(row=2, column=0, sticky="w")
         ttk.Label(table_frame, textvariable=self.street_var).grid(
-            row=2, column=1, sticky=tk.W, padx=10
+            row=2, column=1, sticky="w", padx=10
         )
 
     def create_cards_tab(self, parent: ttk.Frame) -> None:

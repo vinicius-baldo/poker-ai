@@ -117,13 +117,14 @@ class PokerAdvisor:
         if action_history:
             action_str = "\nAction History:\n"
             for action in action_history[-5:]:  # Last 5 actions
-                player = action.get('player', 'Unknown')
-                action_type = action.get('action', 'Unknown')
-                amount = action.get('amount', 0)
+                player = action.get("player", "Unknown")
+                action_type = action.get("action", "Unknown")
+                amount = action.get("amount", 0)
                 action_str += f"- {player}: {action_type} ${amount}\n"
 
         prompt = f"""
-You are an expert poker player analyzing a Texas Hold'em situation. Provide a structured analysis and recommendation.
+You are an expert poker player analyzing a Texas Hold'em situation. \
+Provide a structured analysis and recommendation.
 
 SITUATION:
 - Your hole cards: {hole_str}
@@ -183,7 +184,7 @@ Provide only the JSON response, no additional text.
                 temperature=0.3,  # Lower temperature for more consistent responses
                 max_tokens=1000,
             )
-            return response.choices[0].message.content.strip()
+            return str(response.choices[0].message.content.strip())
         except Exception as e:
             logger.error(f"Error getting LLM response: {e}")
             raise
@@ -199,7 +200,7 @@ Provide only the JSON response, no additional text.
 
             parsed = json.loads(response)
 
-            # Ensure all required fields are present
+            # Ensure all required fields are present and correct type
             required_fields = {
                 "recommendation": "fold",
                 "confidence": 0.5,
@@ -215,11 +216,28 @@ Provide only the JSON response, no additional text.
                 if field not in parsed:
                     parsed[field] = default_value
 
-            return parsed
+            # Type enforcement
+            parsed["recommendation"] = str(parsed["recommendation"])
+            parsed["confidence"] = float(parsed["confidence"])
+            parsed["reasoning"] = str(parsed["reasoning"])
+            parsed["expected_value"] = float(parsed["expected_value"])
+            parsed["risk_level"] = str(parsed["risk_level"])
+            parsed["hand_strength"] = str(parsed["hand_strength"])
+            parsed["position_advantage"] = str(parsed["position_advantage"])
+            if not isinstance(parsed["alternative_actions"], list):
+                parsed["alternative_actions"] = []
 
-        except (json.JSONDecodeError, KeyError) as e:
+            return dict(parsed)
+
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.error(f"Error parsing LLM response: {e}")
             return self._get_fallback_response()
+
+    def _safe_float(self, value: Any) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 1e12
 
     def _calculate_metrics(
         self,
@@ -230,13 +248,19 @@ Provide only the JSON response, no additional text.
         player_stack: float,
     ) -> Dict[str, Any]:
         """Calculate additional metrics for the analysis."""
-        metrics = {}
+        metrics_float: Dict[str, float] = {}
+        metrics_other: Dict[str, Any] = {}
+
+        # Ensure pot_size and current_bet are floats
+        pot_size_f = self._safe_float(pot_size)
+        current_bet_f = self._safe_float(current_bet)
+        player_stack_f = self._safe_float(player_stack)
 
         # Calculate pot odds
-        if current_bet > 0:
-            metrics["pot_odds"] = pot_size / current_bet
+        if current_bet_f > 0:
+            metrics_float["pot_odds"] = pot_size_f / current_bet_f
         else:
-            metrics["pot_odds"] = float("inf")
+            metrics_float["pot_odds"] = 1e12
 
         # Calculate hand strength if we have community cards
         if len(community_cards) >= 3:
@@ -244,18 +268,20 @@ Provide only the JSON response, no additional text.
                 hand_rank, hand_name = HandEvaluator.evaluate_hand(
                     hole_cards, community_cards
                 )
-                metrics["hand_rank"] = hand_rank
-                metrics["hand_name"] = hand_name
+                metrics_float["hand_rank"] = float(hand_rank)
+                metrics_other["hand_name"] = str(hand_name)
             except Exception as e:
                 logger.warning(f"Could not evaluate hand: {e}")
-                metrics["hand_rank"] = 0
-                metrics["hand_name"] = "Unknown"
+                metrics_float["hand_rank"] = 0.0
+                metrics_other["hand_name"] = "Unknown"
 
         # Calculate stack-to-pot ratio
-        metrics["stack_to_pot_ratio"] = (
-            player_stack / pot_size if pot_size > 0 else float("inf")
+        metrics_float["stack_to_pot_ratio"] = (
+            player_stack_f / pot_size_f if pot_size_f > 0 else 1e12
         )
 
+        # Merge and return
+        metrics: Dict[str, Any] = {**metrics_float, **metrics_other}
         return metrics
 
     def _get_fallback_response(self) -> Dict[str, Any]:
@@ -290,42 +316,45 @@ class PokerAnalysisResult:
     @property
     def recommendation(self) -> str:
         """Get the main recommendation."""
-        return self.data.get("recommendation", "fold")
+        return str(self.data.get("recommendation", "fold"))
 
     @property
     def confidence(self) -> float:
         """Get confidence level (0-1)."""
-        return self.data.get("confidence", 0.5)
+        return float(self.data.get("confidence", 0.5))
 
     @property
     def reasoning(self) -> str:
         """Get the reasoning for the recommendation."""
-        return self.data.get("reasoning", "No reasoning available")
+        return str(self.data.get("reasoning", "No reasoning available"))
 
     @property
     def risk_level(self) -> str:
         """Get risk level."""
-        return self.data.get("risk_level", "medium")
+        return str(self.data.get("risk_level", "medium"))
 
     @property
     def expected_value(self) -> float:
         """Get expected value."""
-        return self.data.get("expected_value", 0.0)
+        return float(self.data.get("expected_value", 0.0))
 
     @property
     def hand_strength(self) -> str:
         """Get hand strength assessment."""
-        return self.data.get("hand_strength", "unknown")
+        return str(self.data.get("hand_strength", "unknown"))
 
     @property
     def pot_odds(self) -> float:
         """Get pot odds."""
-        return self.data.get("pot_odds", 0.0)
+        return float(self.data.get("pot_odds", 0.0))
 
     @property
     def alternative_actions(self) -> List[Dict[str, Any]]:
         """Get alternative actions."""
-        return self.data.get("alternative_actions", [])
+        alt = self.data.get("alternative_actions", [])
+        if isinstance(alt, list):
+            return alt
+        return []
 
     def to_gui_format(self) -> Dict[str, Any]:
         """Convert to GUI-friendly format."""
@@ -340,13 +369,15 @@ class PokerAnalysisResult:
             "hand_info": {
                 "strength": self.hand_strength,
                 "pot_odds": self.pot_odds,
-                "stack_to_pot_ratio": self.data.get("stack_to_pot_ratio", 0.0),
+                "stack_to_pot_ratio": float(self.data.get("stack_to_pot_ratio", 0.0)),
             },
             "alternatives": self.alternative_actions,
             "metrics": {
-                "hand_rank": self.data.get("hand_rank", 0),
-                "hand_name": self.data.get("hand_name", "Unknown"),
-                "position_advantage": self.data.get("position_advantage", "neutral"),
+                "hand_rank": int(self.data.get("hand_rank", 0)),
+                "hand_name": str(self.data.get("hand_name", "Unknown")),
+                "position_advantage": str(
+                    self.data.get("position_advantage", "neutral")
+                ),
             },
         }
 
