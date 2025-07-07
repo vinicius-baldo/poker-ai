@@ -1,220 +1,273 @@
 """
-Screen capture functionality for reading poker table information.
+Screen Capture: Real-time capture of poker table screenshots.
 """
-import json
 import logging
-import os
-from typing import Any, Dict, List, Optional, Tuple
+import time
+from typing import Optional, Tuple
 
 import cv2
 import mss
-import mss.tools
 import numpy as np
-
-from .number_reader import NumberReader
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
 
 class ScreenCapture:
-    """Handles screen capture for poker table reading."""
+    """Real-time screen capture for poker table monitoring."""
 
-    def __init__(self) -> None:
+    def __init__(self, monitor_id: int = 1) -> None:
+        """Initialize screen capture."""
+        self.monitor_id = monitor_id
         self.sct = mss.mss()
-        self.regions: Dict[str, Dict] = {}
-        self.last_capture: Optional[np.ndarray] = None
-        self.number_reader = NumberReader()
+        self.monitor = self.sct.monitors[monitor_id]
+        self.last_capture_time = 0
+        self.capture_interval = 0.5  # Capture every 500ms
 
-    def add_region(self, name: str, x: int, y: int, width: int, height: int) -> None:
-        """Add a screen region to capture."""
-        self.regions[name] = {
-            "x": x,
-            "y": y,
-            "width": width,
-            "height": height,
-            "monitor": {"top": y, "left": x, "width": width, "height": height},
-        }
-        logger.info(f"Added capture region '{name}': {x},{y} {width}x{height}")
-
-    def capture_region(self, region_name: str) -> Optional[np.ndarray]:
-        """Capture a specific region of the screen."""
-        if region_name not in self.regions:
-            logger.error(f"Region '{region_name}' not found")
+    def capture_screen(self) -> Optional[np.ndarray]:
+        """Capture current screen as numpy array."""
+        try:
+            screenshot = self.sct.grab(self.monitor)
+            img = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
+            return np.array(img)
+        except Exception as e:
+            logger.error(f"Error capturing screen: {e}")
             return None
 
+    def capture_region(self, region: Tuple[int, int, int, int]) -> Optional[np.ndarray]:
+        """
+        Capture specific region of the screen.
+
+        Args:
+            region: (x, y, width, height) coordinates
+
+        Returns:
+            Numpy array of the captured region
+        """
         try:
-            # Capture the region
-            screenshot = self.sct.grab(self.regions[region_name]["monitor"])
+            x, y, width, height = region
+            monitor_region = {"top": y, "left": x, "width": width, "height": height}
 
-            # Convert to numpy array
-            img = np.array(screenshot)
-
-            # Convert from BGRA to BGR (OpenCV format)
-            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-
-            self.last_capture = img
-            return img
-
+            screenshot = self.sct.grab(monitor_region)
+            img = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
+            return np.array(img)
         except Exception as e:
-            logger.error(f"Failed to capture region '{region_name}': {e}")
+            logger.error(f"Error capturing region {region}: {e}")
             return None
 
-    def capture_all_regions(self) -> Dict[str, np.ndarray]:
-        """Capture all defined regions."""
-        captures = {}
-        for region_name in self.regions:
-            capture = self.capture_region(region_name)
-            if capture is not None:
-                captures[region_name] = capture
-        return captures
+    def capture_with_rate_limit(self) -> Optional[np.ndarray]:
+        """Capture screen with rate limiting to avoid excessive captures."""
+        current_time = time.time()
 
-    def save_capture(self, image: np.ndarray, filename: str) -> None:
-        """Save a captured image to file."""
-        try:
-            cv2.imwrite(filename, image)
-            logger.info(f"Saved capture to {filename}")
-        except Exception as e:
-            logger.error(f"Failed to save capture: {e}")
+        if current_time - self.last_capture_time >= self.capture_interval:
+            self.last_capture_time = current_time
+            return self.capture_screen()
 
-    def get_region_info(self, region_name: str) -> Optional[Dict]:
-        """Get information about a capture region."""
-        return self.regions.get(region_name)
-
-    def read_pot_size(self) -> Optional[float]:
-        """Capture and read the pot size from the table."""
-        img = self.capture_region("pot_size")
-        if img is not None:
-            result: Optional[float] = self.number_reader.read_number(img)
-            return result
         return None
 
-    def read_bet_amount(self) -> Optional[float]:
-        """Capture and read the current bet amount from the table."""
-        img = self.capture_region("bet_amounts")
-        if img is not None:
-            result: Optional[float] = self.number_reader.read_number(img)
-            return result
-        return None
+    def set_capture_interval(self, interval: float) -> None:
+        """Set the capture interval in seconds."""
+        self.capture_interval = interval
 
-    def read_player_stack(self, player_region_name: str) -> Optional[float]:
-        """Capture and read a player's stack from a specific region."""
-        img = self.capture_region(player_region_name)
-        if img is not None:
-            result: Optional[float] = self.number_reader.read_number(img)
-            return result
-        return None
-
-
-class PokerStarsRegions:
-    """Predefined regions for PokerStars table layout."""
-
-    @staticmethod
-    def load_regions_from_config(
-        config_path: str = "config/table_regions.json",
-    ) -> Any:
-        """Load regions from JSON configuration file."""
-        try:
-            if os.path.exists(config_path):
-                with open(config_path, "r") as f:
-                    config = json.load(f)
-                    result = config.get("poker_stars_regions", {})
-                    return result
-            else:
-                logger.warning(
-                    f"Config file {config_path} not found, using default regions"
-                )
-                return PokerStarsRegions.get_default_regions()
-        except Exception as e:
-            logger.error(f"Error loading regions from config: {e}")
-            return PokerStarsRegions.get_default_regions()
-
-    @staticmethod
-    def get_default_regions() -> Dict[str, Dict]:
-        """Get default regions if config file is not available."""
+    def get_monitor_info(self) -> dict:
+        """Get information about the current monitor."""
         return {
-            "hole_cards": {"x": 400, "y": 500, "width": 120, "height": 60},
-            "community_cards": {"x": 350, "y": 300, "width": 220, "height": 60},
-            "pot_size": {"x": 450, "y": 280, "width": 80, "height": 25},
-            "player_names": {"x": 300, "y": 400, "width": 300, "height": 200},
-            "action_buttons": {"x": 350, "y": 600, "width": 200, "height": 50},
-            "bet_amounts": {"x": 350, "y": 580, "width": 200, "height": 20},
-            "player_stacks": {"x": 300, "y": 450, "width": 300, "height": 150},
+            "id": self.monitor_id,
+            "width": self.monitor["width"],
+            "height": self.monitor["height"],
+            "top": self.monitor["top"],
+            "left": self.monitor["left"],
         }
 
-    @staticmethod
-    def setup_regions(
-        capture: ScreenCapture, config_path: str = "config/table_regions.json"
+    def list_monitors(self) -> list:
+        """List all available monitors."""
+        return self.sct.monitors
+
+    def close(self) -> None:
+        """Close the screen capture instance."""
+        self.sct.close()
+
+
+class PokerTableCapture:
+    """Specialized capture for poker table regions."""
+
+    def __init__(
+        self, table_region: Optional[Tuple[int, int, int, int]] = None
     ) -> None:
-        """Setup regions from configuration file."""
-        regions = PokerStarsRegions.load_regions_from_config(config_path)
-        for name, coords in regions.items():
-            capture.add_region(
-                name, coords["x"], coords["y"], coords["width"], coords["height"]
-            )
-        logger.info(f"Loaded {len(regions)} regions from configuration")
-
-    @staticmethod
-    def calibrate_regions(capture: ScreenCapture, reference_image: str) -> None:
         """
-        Calibrate regions based on a reference image.
-        This would be used to adjust coordinates for different screen sizes.
+        Initialize poker table capture.
+
+        Args:
+            table_region: (x, y, width, height) of poker table area
         """
-        # TODO: Implement automatic region calibration
-        logger.info("Region calibration not yet implemented")
+        self.screen_capture = ScreenCapture()
+        self.table_region = table_region
+        self.is_capturing = False
+        self.capture_thread = None
 
+    def set_table_region(self, region: Tuple[int, int, int, int]) -> None:
+        """Set the poker table region to capture."""
+        self.table_region = region
+        logger.info(f"Table region set to: {region}")
 
-class ImageProcessor:
-    """Processes captured images for better OCR results."""
+    def capture_table(self) -> Optional[np.ndarray]:
+        """Capture the poker table region."""
+        if self.table_region:
+            return self.screen_capture.capture_region(self.table_region)
+        else:
+            return self.screen_capture.capture_screen()
 
-    @staticmethod
-    def preprocess_for_ocr(image: np.ndarray) -> np.ndarray:
-        """Preprocess image for better OCR results."""
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    def start_continuous_capture(self, callback, interval: float = 1.0) -> None:
+        """
+        Start continuous capture with callback.
 
-        # Apply Gaussian blur to reduce noise
-        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+        Args:
+            callback: Function to call with captured image
+            interval: Capture interval in seconds
+        """
+        import threading
 
-        # Apply threshold to get binary image
-        _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        self.screen_capture.set_capture_interval(interval)
+        self.is_capturing = True
 
-        return thresh
+        def capture_loop():
+            while self.is_capturing:
+                img = self.screen_capture.capture_with_rate_limit()
+                if img is not None:
+                    try:
+                        callback(img)
+                    except Exception as e:
+                        logger.error(f"Error in capture callback: {e}")
+                time.sleep(0.1)  # Small sleep to prevent excessive CPU usage
 
-    @staticmethod
-    def enhance_card_image(image: np.ndarray) -> np.ndarray:
-        """Enhance image specifically for card recognition."""
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        self.capture_thread = threading.Thread(target=capture_loop, daemon=True)
+        self.capture_thread.start()
+        logger.info("Started continuous capture")
 
-        # Apply contrast enhancement
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        enhanced = clahe.apply(gray)
+    def stop_continuous_capture(self) -> None:
+        """Stop continuous capture."""
+        self.is_capturing = False
+        if self.capture_thread:
+            self.capture_thread.join(timeout=1.0)
+        logger.info("Stopped continuous capture")
 
-        # Apply slight blur to reduce noise
-        blurred = cv2.GaussianBlur(enhanced, (3, 3), 0)
+    def calibrate_table_region(self) -> Optional[Tuple[int, int, int, int]]:
+        """
+        Interactive calibration to select poker table region.
 
-        return blurred
+        Returns:
+            Selected region coordinates (x, y, width, height)
+        """
 
-    @staticmethod
-    def detect_text_regions(image: np.ndarray) -> List[Tuple[int, int, int, int]]:
-        """Detect regions that likely contain text."""
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        def mouse_callback(event, x, y, flags, param):
+            if event == cv2.EVENT_LBUTTONDOWN:
+                param["start_point"] = (x, y)
+            elif event == cv2.EVENT_LBUTTONUP:
+                param["end_point"] = (x, y)
+                param["selection_done"] = True
 
-        # Apply morphological operations to find text regions
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 3))
-        morph = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+        # Capture full screen for calibration
+        full_screen = self.screen_capture.capture_screen()
+        if full_screen is None:
+            logger.error("Failed to capture screen for calibration")
+            return None
 
-        # Find contours
-        contours, _ = cv2.findContours(
-            morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        # Convert BGR to RGB for display
+        full_screen_rgb = cv2.cvtColor(full_screen, cv2.COLOR_BGR2RGB)
+
+        # Create window and set mouse callback
+        cv2.namedWindow("Select Poker Table Region", cv2.WINDOW_NORMAL)
+        cv2.setMouseCallback(
+            "Select Poker Table Region",
+            mouse_callback,
+            {"start_point": None, "end_point": None, "selection_done": False},
         )
 
-        text_regions = []
-        for contour in contours:
-            x, y, w, h = cv2.boundingRect(contour)
-            # Filter by size (text regions should be reasonably sized)
-            if 20 < w < 200 and 10 < h < 50:
-                text_regions.append((x, y, w, h))
+        selection_data = {
+            "start_point": None,
+            "end_point": None,
+            "selection_done": False,
+        }
 
-        return text_regions
+        while not selection_data["selection_done"]:
+            display_img = full_screen_rgb.copy()
+
+            # Draw selection rectangle if started
+            if selection_data["start_point"]:
+                cv2.rectangle(
+                    display_img,
+                    selection_data["start_point"],
+                    (
+                        selection_data["start_point"][0] + 50,
+                        selection_data["start_point"][1] + 50,
+                    ),
+                    (0, 255, 0),
+                    2,
+                )
+
+            cv2.imshow("Select Poker Table Region", display_img)
+            key = cv2.waitKey(1) & 0xFF
+
+            if key == 27:  # ESC key
+                break
+
+        cv2.destroyAllWindows()
+
+        if selection_data["start_point"] and selection_data["end_point"]:
+            x1, y1 = selection_data["start_point"]
+            x2, y2 = selection_data["end_point"]
+
+            # Ensure coordinates are in correct order
+            x = min(x1, x2)
+            y = min(y1, y2)
+            width = abs(x2 - x1)
+            height = abs(y2 - y1)
+
+            region = (x, y, width, height)
+            self.set_table_region(region)
+            return region
+
+        return None
+
+    def close(self) -> None:
+        """Close the poker table capture."""
+        self.stop_continuous_capture()
+        self.screen_capture.close()
+
+
+def test_screen_capture() -> None:
+    """Test the screen capture functionality."""
+    print("🖥️ Testing Screen Capture...")
+    print("=" * 40)
+
+    # Test basic capture
+    capture = ScreenCapture()
+
+    # List monitors
+    monitors = capture.list_monitors()
+    print(f"📺 Found {len(monitors)} monitor(s):")
+    for i, monitor in enumerate(monitors):
+        print(f"  Monitor {i}: {monitor['width']}x{monitor['height']}")
+
+    # Get current monitor info
+    info = capture.get_monitor_info()
+    print(f"🎯 Current monitor: {info['width']}x{info['height']}")
+
+    # Test capture
+    print("📸 Capturing screen...")
+    img = capture.capture_screen()
+    if img is not None:
+        print(f"✅ Captured image: {img.shape}")
+
+        # Save test image
+        cv2.imwrite("test_capture.png", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        print("💾 Saved test image as 'test_capture.png'")
+    else:
+        print("❌ Failed to capture screen")
+
+    capture.close()
+    print("✅ Screen capture test completed!")
+
+
+if __name__ == "__main__":
+    test_screen_capture()

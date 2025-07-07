@@ -1,0 +1,97 @@
+{
+  "hand_id": "test_hand_001",
+  "table_info": {
+    "table_name": "Test Table",
+    "stakes": "1/2"
+  },
+  "actions": [
+    {
+      "player": "Player1",
+      "action": "raise",
+      "amount": 6.0,
+      "street": "preflop",
+      "timestamp": null
+    },
+    {
+      "player": "Player2",
+      "action": "call",
+      "amount": 6.0,
+      "street": "preflop",
+      "timestamp": null
+    },
+    {
+      "player": "Player3",
+      "action": "fold",
+      "amount": 0.0,
+      "street": "preflop",
+      "timestamp": null
+    },
+    {
+      "player": "Hero",
+      "action": "call",
+      "amount": 4.0,
+      "street": "preflop",
+      "timestamp": null
+    }
+  ],
+  "players": [
+    {
+      "name": "Player1",
+      "position": "UTG",
+      "stack": 100.0,
+      "actions": [
+        {
+          "player": "Player1",
+          "action": "raise",
+          "amount": 6.0,
+          "street": "preflop",
+          "timestamp": null
+        }
+      ]
+    },
+    {
+      "name": "Player2",
+      "position": "CO",
+      "stack": 150.0,
+      "actions": [
+        {
+          "player": "Player2",
+          "action": "call",
+          "amount": 6.0,
+          "street": "preflop",
+          "timestamp": null
+        }
+      ]
+    },
+    {
+      "name": "Player3",
+      "position": "BTN",
+      "stack": 200.0,
+      "actions": [
+        {
+          "player": "Player3",
+          "action": "fold",
+          "amount": 0.0,
+          "street": "preflop",
+          "timestamp": null
+        }
+      ]
+    },
+    {
+      "name": "Hero",
+      "position": "BB",
+      "stack": 250.0,
+      "actions": [
+        {
+          "player": "Hero",
+          "action": "call",
+          "amount": 4.0,
+          "street": "preflop",
+          "timestamp": null
+        }
+      ]
+    }
+  ],
+  "start_time": null,
+  "end_time": null
+}

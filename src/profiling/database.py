@@ -5,7 +5,7 @@ import os
 import sqlite3
 from typing import Any, Dict
 
-from opponent_profile import OpponentProfile
+from .opponent_profile import OpponentProfile
 
 
 class OpponentDatabase:

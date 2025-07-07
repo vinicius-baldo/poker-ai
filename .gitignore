@@ -169,3 +169,7 @@ cython_debug/
 data/processed_images/
 *.log
 bandit-report.json
+
+# Large image files
+imagem_tela.png
+test_screen_capture.png
