@@ -10,7 +10,8 @@ import cv2
 import numpy as np
 
 from .card_recognizer import CardRecognizer
-from .number_reader import NumberReader
+
+# NumberReader removed - using LLM approach instead
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class TableDetector:
         """Initialize table detector with configuration."""
         self.config_path = config_path
         self.regions = self._load_regions()
-        self.number_reader = NumberReader()
+        # NumberReader removed - using LLM approach instead
         self.card_recognizer = CardRecognizer()
 
     def _load_regions(self) -> Dict[str, Any]:
@@ -110,10 +111,9 @@ class TableDetector:
         # Extract region
         pot_region = image[y : y + h, x : x + w]
 
-        # Read number from region
-        pot_size = self.number_reader.read_number(pot_region)
-
-        return pot_size
+        # Number reading removed - using LLM approach instead
+        # For now, return None - this will be handled by LLM analysis
+        return None
 
     def _detect_hole_cards(self, image: np.ndarray) -> Optional[List[str]]:
         """Detect hole cards from the table."""
@@ -158,10 +158,9 @@ class TableDetector:
         # Extract region
         bet_region = image[y : y + h, x : x + w]
 
-        # Read number from region
-        bet_amount = self.number_reader.read_number(bet_region)
-
-        return bet_amount
+        # Number reading removed - using LLM approach instead
+        # For now, return None - this will be handled by LLM analysis
+        return None
 
     def save_processed_regions(
         self, image_path: str, output_dir: str = "processed"

@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 
-from core.poker_engine import Card, Rank, Suit
+from ..core.poker_engine import Card, Rank, Suit
 
 logger = logging.getLogger(__name__)
 

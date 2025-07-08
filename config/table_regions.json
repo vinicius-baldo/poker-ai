@@ -22,10 +22,96 @@
       "description": "Hero's hole cards"
     }
   },
+  "tournament_regions": {
+    "blind_level": {
+      "x": 50,
+      "y": 50,
+      "width": 100,
+      "height": 30,
+      "description": "Current blind level"
+    },
+    "small_blind": {
+      "x": 160,
+      "y": 50,
+      "width": 80,
+      "height": 30,
+      "description": "Small blind amount"
+    },
+    "big_blind": {
+      "x": 250,
+      "y": 50,
+      "width": 80,
+      "height": 30,
+      "description": "Big blind amount"
+    },
+    "ante": {
+      "x": 340,
+      "y": 50,
+      "width": 80,
+      "height": 30,
+      "description": "Ante amount"
+    },
+    "level_time": {
+      "x": 430,
+      "y": 50,
+      "width": 100,
+      "height": 30,
+      "description": "Time remaining in current level"
+    },
+    "total_players": {
+      "x": 540,
+      "y": 50,
+      "width": 80,
+      "height": 30,
+      "description": "Total players in tournament"
+    },
+    "remaining_players": {
+      "x": 630,
+      "y": 50,
+      "width": 80,
+      "height": 30,
+      "description": "Remaining players"
+    },
+    "prize_pool": {
+      "x": 720,
+      "y": 50,
+      "width": 120,
+      "height": 30,
+      "description": "Tournament prize pool"
+    },
+    "button": {
+      "x": 850,
+      "y": 50,
+      "width": 60,
+      "height": 30,
+      "description": "Button position indicator"
+    }
+  },
+  "player_seat_regions": {
+    "9max": {
+      "seat_0": {"x": 950, "y": 850, "width": 120, "height": 60, "description": "Bottom center (Hero)"},
+      "seat_1": {"x": 1200, "y": 750, "width": 120, "height": 60, "description": "Bottom right"},
+      "seat_2": {"x": 1300, "y": 500, "width": 120, "height": 60, "description": "Right"},
+      "seat_3": {"x": 1200, "y": 250, "width": 120, "height": 60, "description": "Top right"},
+      "seat_4": {"x": 950, "y": 150, "width": 120, "height": 60, "description": "Top center"},
+      "seat_5": {"x": 700, "y": 250, "width": 120, "height": 60, "description": "Top left"},
+      "seat_6": {"x": 600, "y": 500, "width": 120, "height": 60, "description": "Left"},
+      "seat_7": {"x": 700, "y": 750, "width": 120, "height": 60, "description": "Bottom left"},
+      "seat_8": {"x": 1100, "y": 850, "width": 120, "height": 60, "description": "Bottom center right"}
+    },
+    "6max": {
+      "seat_0": {"x": 950, "y": 850, "width": 120, "height": 60, "description": "Bottom center (Hero)"},
+      "seat_1": {"x": 1300, "y": 500, "width": 120, "height": 60, "description": "Right"},
+      "seat_2": {"x": 950, "y": 150, "width": 120, "height": 60, "description": "Top center"},
+      "seat_3": {"x": 600, "y": 500, "width": 120, "height": 60, "description": "Left"},
+      "seat_4": {"x": 700, "y": 750, "width": 120, "height": 60, "description": "Bottom left"},
+      "seat_5": {"x": 1200, "y": 750, "width": 120, "height": 60, "description": "Bottom right"}
+    }
+  },
   "calibration_info": {
     "image_used": "imagem_tela.png",
     "image_dimensions": "2130x1594",
     "calibration_date": "2024",
-    "notes": "Calibrated for PokerStars table layout"
+    "notes": "Calibrated for PokerStars table layout with tournament support"
   }
 }

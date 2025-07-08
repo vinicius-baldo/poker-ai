@@ -35,7 +35,9 @@ class PokerAssistant:
         api_key: Optional[str] = None,
     ) -> None:
         """Initialize the poker assistant."""
+        # Use standard table detector (LLM approach for advanced features)
         self.table_detector = TableDetector(config_path)
+        logger.info("Initialized poker assistant")
 
         # Get API key from environment or parameter
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
@@ -47,7 +49,7 @@ class PokerAssistant:
 
         self.advisor = PokerAdvisor(api_key=self.api_key)
 
-        # Initialize new components
+        # Initialize components
         self.screen_capture = PokerTableCapture()
         self.position_detector = PositionDetector()
         self.hand_tracker = HandTracker()
