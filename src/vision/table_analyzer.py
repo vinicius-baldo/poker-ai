@@ -9,6 +9,8 @@ from typing import Dict, List, Optional
 import cv2
 import requests
 from PIL import Image
+import os
+import subprocess
 
 
 class TableAnalyzer:
@@ -37,6 +39,11 @@ class TableAnalyzer:
         self.last_action_buttons = None
         self.is_player_turn = False
         self.turn_detection_confidence = 0.0
+        
+        # State tracking to prevent duplicate analysis
+        self.last_bet_amount = None
+        self.last_analysis_timestamp = None
+        self.last_analysis_hash = None
 
     def load_button_regions(self) -> Dict:
         """Load button regions from config file"""
@@ -62,42 +69,69 @@ class TableAnalyzer:
 
     def detect_player_turn(self, image) -> bool:
         """
-        Detect if it's the player's turn by looking for action buttons.
+        Detect if it's the player's turn by looking for the bet slider.
         Returns True if it's the player's turn, False otherwise.
         """
         try:
             # Convert to grayscale for better detection
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-            # Check if action buttons are visible and active
-            active_buttons = []
-            for button_name, region in self.button_regions.items():
-                x, y, w, h = region["x"], region["y"], region["w"], region["h"]
-
-                # Check if region is within image bounds
-                if x < 0 or y < 0 or x + w > image.shape[1] or y + h > image.shape[0]:
-                    continue
-
-                button_region = gray[y : y + h, x : x + w]
-
-                # Simple detection: look for bright/active button areas
-                # This is a basic approach - you might want to use template matching
-                mean_brightness = cv2.mean(button_region)[0]
-                if mean_brightness > 150:  # Threshold for "active" button
-                    active_buttons.append(button_name)
-
-            # It's the player's turn if we detect action buttons
-            is_turn = len(active_buttons) > 0
-
+            
+            # Load slider region from config
+            try:
+                with open("config/slider_region.json", "r") as f:
+                    config = json.load(f)
+                slider_region = config.get("slider_region", {"x": 1385, "y": 1250, "w": 120, "h": 40})
+            except FileNotFoundError:
+                slider_region = {"x": 1385, "y": 1250, "w": 120, "h": 40}
+            
+            x, y, w, h = slider_region["x"], slider_region["y"], slider_region["w"], slider_region["h"]
+            
+            # Check if region is within image bounds
+            if x < 0 or y < 0 or x + w > image.shape[1] or y + h > image.shape[0]:
+                return False
+            
+            slider_area = gray[y:y+h, x:x+w]
+            
+            # Simple detection: look for bright/active slider area
+            mean_brightness = cv2.mean(slider_area)[0]
+            is_slider_present = mean_brightness > 80  # Threshold for "active" slider
+            
+            # Try to read bet amount from the region
+            current_bet_amount = None
+            if is_slider_present:
+                try:
+                    import pytesseract
+                    # Preprocess the region for better OCR
+                    slider_area_resized = cv2.resize(slider_area, (w*2, h*2))
+                    _, thresh = cv2.threshold(slider_area_resized, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                    
+                    # OCR configuration for numbers
+                    config = '--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789.'
+                    text = pytesseract.image_to_string(thresh, config=config).strip()
+                    
+                    # Extract number
+                    import re
+                    numbers = re.findall(r'\d+\.?\d*', text)
+                    if numbers:
+                        current_bet_amount = numbers[0]
+                        
+                except Exception as e:
+                    print(f"Error reading bet amount: {e}")
+            
             # Update state
-            self.is_player_turn = is_turn
-            self.last_action_buttons = active_buttons
-            self.turn_detection_confidence = len(active_buttons) / len(
-                self.button_regions
-            )
-
-            return is_turn
-
+            self.is_player_turn = is_slider_present
+            self.turn_detection_confidence = 1.0 if is_slider_present else 0.0
+            self.last_action_buttons = ["bet_slider"] if is_slider_present else []
+            
+            # Check if this is a new decision (bet amount changed)
+            is_new_decision = False
+            if is_slider_present and current_bet_amount != self.last_bet_amount:
+                is_new_decision = True
+                self.last_bet_amount = current_bet_amount
+                print(f"New bet amount detected: {current_bet_amount}")
+            
+            return is_slider_present and is_new_decision
+            
         except Exception as e:
             print(f"Error detecting player turn: {e}")
             return False
@@ -211,6 +245,29 @@ Please provide only the JSON response, no additional text."""
 
         return prompt
 
+    def play_llm_notification(self):
+        """Play a sound notification when LLM is called (for debugging)"""
+        try:
+            # Try different sound methods based on OS
+            if os.name == 'posix':  # macOS/Linux
+                # Use afplay on macOS with a shorter timeout
+                subprocess.run(['afplay', '/System/Library/Sounds/Ping.aiff'], 
+                             capture_output=True, timeout=1)
+            elif os.name == 'nt':  # Windows
+                # Use winsound on Windows
+                import winsound
+                winsound.MessageBeep()
+            else:
+                # Fallback: print a bell character
+                print('\a')
+            print("🔔 LLM Analysis Triggered!")
+        except subprocess.TimeoutExpired:
+            # Sound played but timed out (normal)
+            print("🔔 LLM Analysis Triggered!")
+        except Exception as e:
+            # Fallback: just print a notification
+            print(f"🔔 LLM Analysis Triggered! (Sound failed: {e})")
+
     def call_llm_vision_api(self, image_base64: str, prompt: str) -> Optional[Dict]:
         """Call LLM vision API to analyze the image"""
         # This is a placeholder - you'll need to implement with your chosen LLM
@@ -319,58 +376,65 @@ Please provide only the JSON response, no additional text."""
             screenshot = self.capture_screenshot()
             if not screenshot:
                 return None
-
+            
             # Convert to OpenCV format for turn detection
             import cv2
             import numpy as np
-
             nparr = np.frombuffer(screenshot, np.uint8)
             image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
+            
             # Check if it's the player's turn
             is_player_turn = self.detect_player_turn(image)
-
+            
             if not is_player_turn:
-                print(
-                    f"Not player's turn (confidence: {self.turn_detection_confidence:.2f}), skipping analysis"
-                )
+                print(f"Not player's turn or no new decision (confidence: {self.turn_detection_confidence:.2f}), skipping analysis")
                 return None
-
-            print(
-                f"Player's turn detected! Available actions: {self.last_action_buttons}"
-            )
-
+            
+            # Check if game state has changed since last analysis
+            if not self.has_state_changed(image):
+                print("Game state unchanged since last analysis, skipping duplicate LLM call")
+                return None
+            
+            print(f"Player's turn detected! Bet amount: {self.last_bet_amount}")
+            
+            # Play sound notification for debugging
+            self.play_llm_notification()
+            
             # Get existing player profiles
             player_profiles = self.get_player_profiles_from_db()
-
+            
             # Create LLM prompt
             prompt = self.create_llm_prompt(player_profiles)
-
+            
             # Encode image
             image_base64 = self.encode_image_for_llm(screenshot)
-
+            
             # Call LLM
             llm_response = self.call_llm_vision_api(image_base64, prompt)
             if not llm_response:
                 return None
-
+            
             # Parse response (you'll need to extract JSON from LLM response)
             analysis = self.parse_llm_response(llm_response)
             if not analysis:
                 return None
-
+            
             # Add turn detection info
             analysis["turn_detection"] = {
                 "is_player_turn": is_player_turn,
                 "confidence": self.turn_detection_confidence,
                 "detected_buttons": self.last_action_buttons,
+                "bet_amount": self.last_bet_amount
             }
-
+            
+            # Update last analysis timestamp
+            self.last_analysis_timestamp = datetime.now()
+            
             # Save to database
             self.save_analysis_to_db(analysis)
-
+            
             return analysis
-
+            
         except Exception as e:
             print(f"Error analyzing table: {e}")
             return None
@@ -414,6 +478,38 @@ Please provide only the JSON response, no additional text."""
             except Exception as e:
                 print(f"Error in continuous analysis: {e}")
                 time.sleep(interval_seconds)
+
+    def create_game_state_hash(self, image) -> str:
+        """Create a hash of the current game state to detect changes"""
+        try:
+            import hashlib
+            
+            # Convert image to grayscale and resize for consistent hashing
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            resized = cv2.resize(gray, (100, 100))  # Small size for fast hashing
+            
+            # Create hash from image data
+            image_hash = hashlib.md5(resized.tobytes()).hexdigest()
+            
+            # Combine with bet amount for more specific state tracking
+            bet_amount_str = str(self.last_bet_amount) if self.last_bet_amount else "none"
+            state_hash = hashlib.md5(f"{image_hash}_{bet_amount_str}".encode()).hexdigest()
+            
+            return state_hash
+            
+        except Exception as e:
+            print(f"Error creating game state hash: {e}")
+            return "error"
+    
+    def has_state_changed(self, image) -> bool:
+        """Check if the game state has changed since last analysis"""
+        current_hash = self.create_game_state_hash(image)
+        
+        if self.last_analysis_hash != current_hash:
+            self.last_analysis_hash = current_hash
+            return True
+        
+        return False
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ Test script for turn detection and LLM analysis
 
 import time
 
-from src.main_llm_analyzer import MainLLMAnalyzer
+from src.main_llm_analyzer import LLMPokerAnalyzer
 from src.vision.table_analyzer import TableAnalyzer
 
 
@@ -17,7 +17,7 @@ def test_turn_detection():
     analyzer = TableAnalyzer()
 
     # Test with your screenshot
-    test_image = "imagem_teste.png"
+    test_image = "imagem_tela.png"
 
     try:
         import cv2
@@ -39,7 +39,7 @@ def test_llm_analysis():
     print("\n🤖 Testing LLM Analysis System")
     print("=" * 40)
 
-    analyzer = MainLLMAnalyzer()
+    analyzer = LLMPokerAnalyzer()
 
     # Run one analysis cycle
     print("Running analysis cycle...")
@@ -58,7 +58,7 @@ def test_continuous_analysis():
     print("This will run for 10 seconds, analyzing only when it's your turn...")
     print("Press Ctrl+C to stop early")
 
-    analyzer = MainLLMAnalyzer()
+    analyzer = LLMPokerAnalyzer()
 
     start_time = time.time()
     cycle_count = 0
