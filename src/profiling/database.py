@@ -3,9 +3,9 @@ OpponentDatabase: Manages all opponent profiles and handles SQLite persistence.
 """
 import os
 import sqlite3
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from .opponent_profile import OpponentProfile
+from profiling.opponent_profile import OpponentProfile
 
 
 class OpponentDatabase:
@@ -54,7 +54,7 @@ class OpponentDatabase:
         name: str,
         actions: Any,
         went_to_showdown: bool = False,
-        showdown_hand: Any = None,
+        showdown_hand: Optional[Any] = None,
     ) -> None:
         profile = self.get_profile(name)
         profile.record_hand(actions, went_to_showdown, showdown_hand)

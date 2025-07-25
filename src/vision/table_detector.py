@@ -9,9 +9,9 @@ from typing import Any, Dict, List, Optional
 import cv2
 import numpy as np
 
-from .card_recognizer import CardRecognizer
+from vision.enhanced_card_recognizer import EnhancedCardRecognizer
 
-# NumberReader removed - using LLM approach instead
+# TODO: Add OCR functionality for number reading
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ class TableDetector:
         """Initialize table detector with configuration."""
         self.config_path = config_path
         self.regions = self._load_regions()
-        # NumberReader removed - using LLM approach instead
-        self.card_recognizer = CardRecognizer()
+        # TODO: Add OCR functionality for number reading
+        self.card_recognizer = EnhancedCardRecognizer()
 
     def _load_regions(self) -> Dict[str, Any]:
         """Load table regions from configuration file."""
@@ -32,7 +32,14 @@ class TableDetector:
             if os.path.exists(self.config_path):
                 with open(self.config_path, "r") as f:
                     config = json.load(f)
-                    return config.get("regions", {})
+                    regions = config.get("regions", {})
+                    if isinstance(regions, dict):
+                        return regions
+                    else:
+                        logger.warning(
+                            "Invalid regions format in config, using defaults"
+                        )
+                        return self._get_default_regions()
             else:
                 logger.warning(
                     f"Config file {self.config_path} not found, using defaults"
@@ -105,15 +112,9 @@ class TableDetector:
         if "pot_size" not in self.regions:
             return None
 
-        region = self.regions["pot_size"]
-        x, y, w, h = region["x"], region["y"], region["width"], region["height"]
-
-        # Extract region
-        pot_region = image[y : y + h, x : x + w]
-
-        # Number reading removed - using LLM approach instead
-        # For now, return None - this will be handled by LLM analysis
-        return None
+        # TODO: Implement OCR for pot size detection
+        # For now, return a placeholder value
+        return 0.0
 
     def _detect_hole_cards(self, image: np.ndarray) -> Optional[List[str]]:
         """Detect hole cards from the table."""
@@ -129,7 +130,10 @@ class TableDetector:
         # Recognize cards
         cards = self.card_recognizer.recognize_cards(cards_region)
 
-        return cards
+        # Convert Card objects to strings
+        if cards:
+            return [str(card) for card in cards]
+        return None
 
     def _detect_community_cards(self, image: np.ndarray) -> Optional[List[str]]:
         """Detect community cards from the table."""
@@ -145,22 +149,19 @@ class TableDetector:
         # Recognize cards
         cards = self.card_recognizer.recognize_cards(cards_region)
 
-        return cards
+        # Convert Card objects to strings
+        if cards:
+            return [str(card) for card in cards]
+        return None
 
     def _detect_current_bet(self, image: np.ndarray) -> Optional[float]:
         """Detect current bet amount from the table."""
         if "current_bet" not in self.regions:
             return None
 
-        region = self.regions["current_bet"]
-        x, y, w, h = region["x"], region["y"], region["width"], region["height"]
-
-        # Extract region
-        bet_region = image[y : y + h, x : x + w]
-
-        # Number reading removed - using LLM approach instead
-        # For now, return None - this will be handled by LLM analysis
-        return None
+        # TODO: Implement OCR for bet amount detection
+        # For now, return a placeholder value
+        return 0.0
 
     def save_processed_regions(
         self, image_path: str, output_dir: str = "processed"

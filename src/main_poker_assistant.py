@@ -15,9 +15,11 @@ import pandas as pd
 from ai.poker_advisor import PokerAdvisor, PokerAnalysisResult
 from analysis.hand_tracker import HandTracker
 from core.poker_engine import Card, Rank, Suit
+from vision.game_state_detector import GameState, GameStateDetector
 from vision.position_detector import PositionDetector
 from vision.screen_capture import PokerTableCapture
 from vision.table_detector import TableDetector
+from vision.window_detector import WindowDetector
 
 # Configure logging
 logging.basicConfig(
@@ -35,7 +37,7 @@ class PokerAssistant:
         api_key: Optional[str] = None,
     ) -> None:
         """Initialize the poker assistant."""
-        # Use standard table detector (LLM approach for advanced features)
+        # Use standard table detector
         self.table_detector = TableDetector(config_path)
         logger.info("Initialized poker assistant")
 
@@ -53,11 +55,14 @@ class PokerAssistant:
         self.screen_capture = PokerTableCapture()
         self.position_detector = PositionDetector()
         self.hand_tracker = HandTracker()
+        self.window_detector = WindowDetector("PokerStars")
+        self.game_state_detector = GameStateDetector(config_path)
 
         # Game state tracking
         self.current_street = "unknown"
         self.action_history: List[Dict[str, Any]] = []
         self.is_monitoring = False
+        self.last_analysis_time = 0
 
     def analyze_current_situation(
         self, image_path: str
@@ -98,7 +103,8 @@ class PokerAssistant:
             position = "unknown"  # Could be enhanced with position detection
 
             logger.info(
-                f"Detected: {len(hole_cards)} hole cards, {len(community_cards)} community cards"
+                f"Detected: {len(hole_cards)} hole cards, "
+                f"{len(community_cards)} community cards"
             )
             logger.info(f"Pot: ${pot_size}, Bet: ${current_bet}, Street: {street}")
 
@@ -273,7 +279,7 @@ class PokerAssistant:
         if table_region:
             self.screen_capture.set_table_region(table_region)
 
-        def analysis_callback(image):
+        def analysis_callback(image: Any) -> None:
             """Callback for each captured image."""
             try:
                 # Save temporary image
@@ -304,6 +310,145 @@ class PokerAssistant:
 
         logger.info("Started real-time monitoring")
 
+    def start_window_activation_monitoring(self) -> None:
+        """
+        Start monitoring for PokerStars window activation (hero's turn).
+        This is more efficient than continuous monitoring.
+        """
+        if self.is_monitoring:
+            logger.warning("Already monitoring")
+            return
+
+        self.is_monitoring = True
+        logger.info("Started window activation monitoring")
+
+        def monitoring_loop() -> None:
+            """Main monitoring loop."""
+            while self.is_monitoring:
+                try:
+                    # Check for window activation
+                    if self.window_detector.detect_window_activation():
+                        logger.info(
+                            "🎯 PokerStars window activated - hero's turn detected!"
+                        )
+
+                        # Capture and analyze the current situation
+                        self._analyze_on_activation()
+
+                    time.sleep(0.1)  # Check every 100ms
+
+                except KeyboardInterrupt:
+                    logger.info("Monitoring stopped by user")
+                    break
+                except Exception as e:
+                    logger.error(f"Error in monitoring loop: {e}")
+                    time.sleep(1.0)  # Wait before retrying
+
+        # Start monitoring in a separate thread
+        import threading
+
+        self.monitoring_thread = threading.Thread(target=monitoring_loop, daemon=True)
+        self.monitoring_thread.start()
+
+    def _analyze_on_activation(self) -> None:
+        """Analyze the table when PokerStars window is activated."""
+        try:
+            current_time = time.time()
+
+            # Rate limiting - don't analyze too frequently
+            if current_time - self.last_analysis_time < 1.0:  # 1 second minimum
+                logger.debug("Skipping analysis - too soon since last analysis")
+                return
+
+            self.last_analysis_time = int(current_time)
+
+            # Capture current screen
+            image = self.screen_capture.capture_table()
+            if image is None:
+                logger.error("Failed to capture table image")
+                return
+
+            # Detect game state using the new detector
+            game_state = self.game_state_detector.detect_game_state(image)
+
+            if game_state:
+                logger.info(
+                    f"🎯 Game state detected with {game_state.confidence:.1%} confidence"
+                )
+                logger.info(f"  Hole cards: {game_state.hole_cards}")
+                logger.info(f"  Community cards: {game_state.community_cards}")
+                logger.info(f"  Pot size: ${game_state.pot_size}")
+                logger.info(f"  Street: {game_state.street}")
+
+                # Save temporary image for analysis
+                temp_path = "temp_capture.png"
+                cv2.imwrite(temp_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+
+                # Analyze the situation with detected game state
+                result = self._analyze_game_state(game_state, temp_path)
+
+                if result:
+                    logger.info(
+                        f"🎯 Hero's turn analysis: {result.recommendation.upper()} "
+                        f"({result.confidence:.1%})"
+                    )
+
+                    # Here you could trigger GUI updates, notifications, etc.
+                    self._handle_analysis_result(result)
+                else:
+                    logger.warning("Failed to analyze current situation")
+
+                # Clean up temp file
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            else:
+                logger.warning("Failed to detect game state")
+
+        except Exception as e:
+            logger.error(f"Error in activation analysis: {e}")
+
+    def _analyze_game_state(
+        self, game_state: GameState, image_path: str
+    ) -> Optional[PokerAnalysisResult]:
+        """Analyze a detected game state."""
+        try:
+            # Use the advisor to analyze the situation
+            result = self.advisor.analyze_situation(
+                hole_cards=game_state.hole_cards,
+                community_cards=game_state.community_cards,
+                pot_size=game_state.pot_size,
+                current_bet=game_state.current_bet,
+                player_stack=game_state.player_stack,
+                opponent_stack=game_state.opponent_stack,
+                street=game_state.street,
+                position=game_state.position,
+                active_players=game_state.active_players,
+                blind_level=game_state.blind_level,
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Game state analysis failed: {e}")
+            return None
+
+    def _handle_analysis_result(self, result: PokerAnalysisResult) -> None:
+        """Handle the analysis result (GUI updates, notifications, etc.)."""
+        # TODO: Implement GUI updates, notifications, etc.
+        logger.info(
+            f"Analysis result: {result.recommendation} with "
+            f"{result.confidence:.1%} confidence"
+        )
+
+        # Example: Print recommendation to console
+        print("\n🎯 POKER RECOMMENDATION:")
+        print(f"Action: {result.recommendation.upper()}")
+        print(f"Confidence: {result.confidence:.1%}")
+        print(f"Reasoning: {result.reasoning}")
+        print(f"Risk Level: {result.risk_level}")
+        print(f"Expected Value: ${result.expected_value:.2f}")
+        print("-" * 50)
+
     def stop_real_time_monitoring(self) -> None:
         """Stop real-time monitoring."""
         if not self.is_monitoring:
@@ -315,9 +460,12 @@ class PokerAssistant:
 
     def calibrate_table_region(self) -> Optional[Tuple[int, int, int, int]]:
         """Calibrate the table region for capture."""
-        return self.screen_capture.calibrate_table_region()
+        result = self.screen_capture.calibrate_table_region()
+        if isinstance(result, tuple) and len(result) == 4:
+            return result
+        return None
 
-    def start_new_hand(self, hand_id: str = None) -> None:
+    def start_new_hand(self, hand_id: Optional[str] = None) -> None:
         """Start tracking a new hand."""
         if hand_id is None:
             hand_id = f"hand_{int(time.time())}"
@@ -338,11 +486,17 @@ class PokerAssistant:
 
     def get_opponent_analysis(self, player_name: str) -> Dict[str, Any]:
         """Get detailed analysis of an opponent."""
-        return self.hand_tracker.get_opponent_stats(player_name)
+        result = self.hand_tracker.get_opponent_stats(player_name)
+        if isinstance(result, dict):
+            return result
+        return {}
 
     def get_session_stats(self) -> Dict[str, Any]:
         """Get current session statistics."""
-        return self.hand_tracker.get_session_stats()
+        result = self.hand_tracker.get_session_stats()
+        if isinstance(result, dict):
+            return result
+        return {}
 
     def close(self) -> None:
         """Close the poker assistant and clean up resources."""
@@ -416,7 +570,7 @@ def main() -> None:
         print(f"📊 Pot Odds: {result.pot_odds:.2f}:1")
 
         # Show GUI format
-        print(f"\n🖥️  GUI Data:")
+        print("\n🖥️  GUI Data:")
         gui_data = result.to_gui_format()
         print(json.dumps(gui_data, indent=2))
 

@@ -107,11 +107,5 @@
       "seat_4": {"x": 700, "y": 750, "width": 120, "height": 60, "description": "Bottom left"},
       "seat_5": {"x": 1200, "y": 750, "width": 120, "height": 60, "description": "Bottom right"}
     }
-  },
-  "calibration_info": {
-    "image_used": "imagem_tela.png",
-    "image_dimensions": "2130x1594",
-    "calibration_date": "2024",
-    "notes": "Calibrated for PokerStars table layout with tournament support"
   }
 }

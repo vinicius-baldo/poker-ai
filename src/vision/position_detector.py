@@ -2,7 +2,7 @@
 Position Detector: Identifies player positions on the poker table.
 """
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -35,8 +35,8 @@ class PositionDetector:
         """
         self.table_layout = table_layout
         self.player_positions: Dict[str, str] = {}
-        self.button_position = None
-        self.hero_position = None
+        self.button_position: Optional[str] = None
+        self.hero_position: Optional[str] = None
 
     def detect_positions_from_image(self, image: np.ndarray) -> Dict[str, str]:
         """
@@ -196,7 +196,7 @@ class PositionDetector:
         hero_pos: Optional[Tuple[int, int]],
     ) -> Dict[str, str]:
         """Map detected seats to position names."""
-        positions = {}
+        positions: Dict[str, str] = {}
 
         if not seats:
             return positions
@@ -303,7 +303,7 @@ class PositionDetector:
         """Manually set button position."""
         self.button_position = position
 
-    def get_position_stats(self) -> Dict[str, any]:
+    def get_position_stats(self) -> Dict[str, Any]:
         """Get position statistics and information."""
         return {
             "table_layout": self.table_layout,

@@ -50,7 +50,8 @@ class PokerAdvisor:
                 ],
                 "hand_strength": "strong/medium/weak",
                 "pot_odds": 2.5,
-                "position_advantage": "good/neutral/bad"
+                "position_advantage": "good/neutral/bad",
+                "likely_villain_hand": "JJ",
             }
         """
         try:

@@ -3,7 +3,7 @@ Screen Capture: Real-time capture of poker table screenshots.
 """
 import logging
 import time
-from typing import Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import mss
@@ -21,8 +21,8 @@ class ScreenCapture:
         self.monitor_id = monitor_id
         self.sct = mss.mss()
         self.monitor = self.sct.monitors[monitor_id]
-        self.last_capture_time = 0
-        self.capture_interval = 0.5  # Capture every 500ms
+        self.last_capture_time: float = 0.0
+        self.capture_interval: float = 0.5  # Capture every 500ms
 
     def capture_screen(self) -> Optional[np.ndarray]:
         """Capture current screen as numpy array."""
@@ -79,9 +79,12 @@ class ScreenCapture:
             "left": self.monitor["left"],
         }
 
-    def list_monitors(self) -> list:
+    def list_monitors(self) -> List[Dict[str, Any]]:
         """List all available monitors."""
-        return self.sct.monitors
+        monitors = self.sct.monitors
+        if isinstance(monitors, list):
+            return monitors
+        return []
 
     def close(self) -> None:
         """Close the screen capture instance."""
@@ -103,7 +106,7 @@ class PokerTableCapture:
         self.screen_capture = ScreenCapture()
         self.table_region = table_region
         self.is_capturing = False
-        self.capture_thread = None
+        self.capture_thread: Optional[Any] = None
 
     def set_table_region(self, region: Tuple[int, int, int, int]) -> None:
         """Set the poker table region to capture."""
@@ -117,7 +120,7 @@ class PokerTableCapture:
         else:
             return self.screen_capture.capture_screen()
 
-    def start_continuous_capture(self, callback, interval: float = 1.0) -> None:
+    def start_continuous_capture(self, callback: Any, interval: float = 1.0) -> None:
         """
         Start continuous capture with callback.
 
@@ -130,7 +133,7 @@ class PokerTableCapture:
         self.screen_capture.set_capture_interval(interval)
         self.is_capturing = True
 
-        def capture_loop():
+        def capture_loop() -> None:
             while self.is_capturing:
                 img = self.screen_capture.capture_with_rate_limit()
                 if img is not None:
@@ -147,7 +150,7 @@ class PokerTableCapture:
     def stop_continuous_capture(self) -> None:
         """Stop continuous capture."""
         self.is_capturing = False
-        if self.capture_thread:
+        if self.capture_thread is not None:
             self.capture_thread.join(timeout=1.0)
         logger.info("Stopped continuous capture")
 
@@ -159,7 +162,9 @@ class PokerTableCapture:
             Selected region coordinates (x, y, width, height)
         """
 
-        def mouse_callback(event, x, y, flags, param):
+        def mouse_callback(
+            event: int, x: int, y: int, flags: int, param: Dict[str, Any]
+        ) -> None:
             if event == cv2.EVENT_LBUTTONDOWN:
                 param["start_point"] = (x, y)
             elif event == cv2.EVENT_LBUTTONUP:
@@ -183,7 +188,7 @@ class PokerTableCapture:
             {"start_point": None, "end_point": None, "selection_done": False},
         )
 
-        selection_data = {
+        selection_data: Dict[str, Any] = {
             "start_point": None,
             "end_point": None,
             "selection_done": False,
@@ -214,8 +219,11 @@ class PokerTableCapture:
         cv2.destroyAllWindows()
 
         if selection_data["start_point"] and selection_data["end_point"]:
-            x1, y1 = selection_data["start_point"]
-            x2, y2 = selection_data["end_point"]
+            start_point = selection_data["start_point"]
+            end_point = selection_data["end_point"]
+            if start_point and end_point:
+                x1, y1 = start_point
+                x2, y2 = end_point
 
             # Ensure coordinates are in correct order
             x = min(x1, x2)

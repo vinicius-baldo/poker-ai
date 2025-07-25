@@ -1,4 +1,4 @@
--- Database schema for LLM-based poker table analysis
+-- Database schema for poker table analysis
 
 -- Table states (snapshots of the table)
 CREATE TABLE IF NOT EXISTS table_states (

@@ -165,6 +165,15 @@ cython_debug/
 # VS Code
 .vscode/
 
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
 # Project specific
 data/processed_images/
 *.log
@@ -173,3 +182,11 @@ bandit-report.json
 # Large image files
 imagem_tela.png
 test_screen_capture.png
+
+# Image files (screenshots, templates, etc.)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff

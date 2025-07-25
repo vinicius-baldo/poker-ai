@@ -18,14 +18,14 @@ class HandTracker:
     def __init__(self, db_path: str = "data/opponents.db") -> None:
         """Initialize hand tracker with database."""
         self.database = OpponentDatabase(db_path)
-        self.current_hand_id = None
+        self.current_hand_id: Optional[str] = None
         self.current_hand_data: Dict[str, Any] = {}
         self.action_history: List[Dict[str, Any]] = []
         self.opponents_in_hand: List[str] = []
 
     def start_new_hand(self, hand_id: str, table_info: Dict[str, Any]) -> None:
         """Start tracking a new hand."""
-        self.current_hand_id = hand_id
+        self.current_hand_id = str(hand_id)
         self.current_hand_data = {
             "hand_id": hand_id,
             "table_info": table_info,
@@ -51,8 +51,6 @@ class HandTracker:
         self.current_hand_data["players"].append(player_data)
         self.opponents_in_hand.append(player_name)
 
-        # Get or create opponent profile
-        profile = self.database.get_profile(player_name)
         logger.info(f"Added player {player_name} ({position}) to hand")
 
     def record_action(
@@ -93,8 +91,6 @@ class HandTracker:
             if player_name == "Hero":  # Skip hero
                 continue
 
-            profile = self.database.get_profile(player_name)
-
             # Get player's actions for this hand
             player_actions = []
             for action in self.action_history:
@@ -134,7 +130,9 @@ class HandTracker:
         # Add additional analysis
         stats.update(self._analyze_opponent_tendencies(profile))
 
-        return stats
+        if isinstance(stats, dict):
+            return stats
+        return {}
 
     def get_opponents_in_hand(self) -> List[Dict[str, Any]]:
         """Get information about all opponents in the current hand."""
@@ -164,7 +162,6 @@ class HandTracker:
 
         # Analyze playing style
         vpip = stats.get("vpip_pct", 0)
-        pfr = stats.get("pfr_pct", 0)
         aggression = stats.get("aggression_factor", 0)
 
         # Determine playing style
@@ -217,7 +214,7 @@ class HandTracker:
 
     def get_recent_hands(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent hand data for analysis."""
-        hands = []
+        hands: List[Dict[str, Any]] = []
         data_dir = "data/hands"
 
         if not os.path.exists(data_dir):
@@ -337,7 +334,6 @@ class HandAnalyzer:
     ) -> str:
         """Estimate opponent's hand range based on stats and betting."""
         vpip = stats.get("vpip_pct", 0)
-        aggression = stats.get("aggression_factor", 0)
 
         # Simple range estimation based on VPIP
         if vpip < 15:

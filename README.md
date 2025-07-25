@@ -6,7 +6,7 @@ Um assistente de poker inteligente que combina visão computacional para detecta
 
 - **Detecção Visual**: Captura e analisa screenshots da mesa de poker
 - **Reconhecimento de Cartas**: Detecta cartas do jogador e cartas comunitárias
-- **Análise de IA**: Usa LLM (GPT-4) para análise estratégica de situações de poker
+- **Análise de IA**: Usa IA para análise estratégica de situações de poker
 - **Recomendações Estruturadas**: Fornece dados organizados para GUI
 - **Interface Gráfica**: Exemplo de GUI usando tkinter
 - **Suporte a Torneios**: Detecção dinâmica de jogadores e análise específica para torneios
@@ -120,7 +120,7 @@ PokerAI/
 
 ### Calibração de Regiões
 
-O sistema precisa ser calibrado para detectar corretamente os elementos da mesa. Use o LLM-based analyzer para análise avançada ou ajuste as coordenadas em `config/table_regions.json` manualmente.
+O sistema precisa ser calibrado para detectar corretamente os elementos da mesa. Ajuste as coordenadas em `config/table_regions.json` manualmente.
 
 ### Formato de Dados
 
@@ -216,11 +216,10 @@ assistant = PokerAssistant()
 # Análise da situação atual
 analysis = assistant.analyze_current_situation("imagem_torneio.png")
 
-# Para funcionalidades avançadas, use o LLM-based analyzer
-# from src.main_llm_analyzer import LLMPokerAnalyzer
-# llm_analyzer = LLMPokerAnalyzer()
-# llm_analyzer.setup_llm_api("your-api-key", "openai")
-# llm_analyzer.run_continuous_analysis()
+# Para funcionalidades avançadas, use o analyzer principal
+# from src.main_poker_assistant import PokerAssistant
+# assistant = PokerAssistant()
+# assistant.analyze_current_situation("imagem_torneio.png")
 ```
 
 ### Informações de Torneio Detectadas
